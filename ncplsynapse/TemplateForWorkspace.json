@@ -1,0 +1,2369 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"workspaceName": {
+			"type": "string",
+			"metadata": "Workspace name",
+			"defaultValue": "ncplsynapse"
+		},
+		"AzureDataLakeStorage1_accountKey": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accountKey' of 'AzureDataLakeStorage1'"
+		},
+		"OnPremiseSqlLinkedService_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'OnPremiseSqlLinkedService'"
+		},
+		"SqlLinkedService_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'SqlLinkedService'"
+		},
+		"ncplsynapse-WorkspaceDefaultSqlServer_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'ncplsynapse-WorkspaceDefaultSqlServer'",
+			"defaultValue": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=tcp:ncplsynapse.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName}"
+		},
+		"AzureDataLakeStorage1_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://adlsgen2ncpl85.dfs.core.windows.net/"
+		},
+		"OnPremiseSqlLinkedService_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "ncplvm85"
+		},
+		"OnPremiseSqlLinkedService_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "OnPremiseDemo"
+		},
+		"OnPremiseSqlLinkedService_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "azureuser"
+		},
+		"SqlLinkedService_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "adfncplserver.database.windows.net"
+		},
+		"SqlLinkedService_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "adfncpldb"
+		},
+		"SqlLinkedService_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "ncpladmin"
+		},
+		"ncplsynapse-WorkspaceDefaultStorage_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://adlsgen2ncpl85.dfs.core.windows.net"
+		}
+	},
+	"variables": {
+		"workspaceId": "[concat('Microsoft.Synapse/workspaces/', parameters('workspaceName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('workspaceName'), '/Copy')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy data1",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DelimitedText3",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "Parquet1",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DelimitedText3')]",
+				"[concat(variables('workspaceId'), '/datasets/Parquet1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/FilterSortDerivedColumnPipeline')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Dataflow1",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "Dataflow1",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"SQL": {},
+									"sink1": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-10-05T18:40:30Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/dataflows/Dataflow1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Incremental CopyData')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "LookUp Watermark",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DynamicTable",
+								"type": "DatasetReference",
+								"parameters": {
+									"TableName": "WATERMARK",
+									"SchemaName": "dbo"
+								}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "ForEachTableInWatermark",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "LookUp Watermark",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('LookUp Watermark').output.value",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "CopySqlToSynapse",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureSqlSource",
+											"sqlReaderQuery": {
+												"value": "SELECT *\nFROM @{item().SCHEMANAME}.@{item().TABLENAME}\nWHERE @{item().DELTACOLUMN} > '@{item().LASTMODIFIEDDATE}'",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "DelimitedTextSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "DelimitedTextWriteSettings",
+												"quoteAllText": true,
+												"fileExtension": ".csv"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DynamicTable",
+											"type": "DatasetReference",
+											"parameters": {
+												"TableName": "''",
+												"SchemaName": "''"
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DelimitedText1",
+											"type": "DatasetReference",
+											"parameters": {
+												"FOLDERNAME": {
+													"value": "@item().FOLDERNAME",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Update Last Modified date in Watermark table",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Look up max of Modified date",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[dbo].[UpdateWatermark]",
+										"storedProcedureParameters": {
+											"LASTMODIFIEDDATE": {
+												"value": {
+													"value": "@activity('Look up max of Modified date').output.value[0].maxvalue",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"TABLENAME": {
+												"value": {
+													"value": "@item().TABLENAME",
+													"type": "Expression"
+												},
+												"type": "String"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "SqlLinkedService",
+										"type": "LinkedServiceReference"
+									}
+								},
+								{
+									"name": "Look up max of Modified date",
+									"type": "Lookup",
+									"dependsOn": [
+										{
+											"activity": "CopySqlToSynapse",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureSqlSource",
+											"sqlReaderQuery": {
+												"value": "select max(@{item().DELTACOLUMN}) AS maxvalue from @{item().SCHEMANAME}.@{item().TABLENAME}\n",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"dataset": {
+											"referenceName": "DynamicTable",
+											"type": "DatasetReference",
+											"parameters": {
+												"TableName": {
+													"value": "@item().TABLENAME",
+													"type": "Expression"
+												},
+												"SchemaName": "''"
+											}
+										},
+										"firstRowOnly": false
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-10-02T12:04:37Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DynamicTable')]",
+				"[concat(variables('workspaceId'), '/datasets/DelimitedText1')]",
+				"[concat(variables('workspaceId'), '/linkedServices/SqlLinkedService')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/JoinSelectConditionalSplitPipeline')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "JoinDataFlow",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "JoinDataflow1",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"Customer": {},
+									"CustomerAddress": {},
+									"Address": {},
+									"MainOfficeSink": {},
+									"OtherAddressSink": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-10-05T18:41:01Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/dataflows/JoinDataflow1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/OnPremiseCopy')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "OnPremiseCopyData",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "DelimitedTextSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "DelimitedTextWriteSettings",
+									"quoteAllText": true,
+									"fileExtension": ".csv"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "OnPremiseSql",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DelimitedText2",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-10-06T13:17:07Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/OnPremiseSql')]",
+				"[concat(variables('workspaceId'), '/datasets/DelimitedText2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Project3')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get Watermark table data",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DynamicTable",
+								"type": "DatasetReference",
+								"parameters": {
+									"TableName": "WATERMARK2",
+									"SchemaName": "dbo"
+								}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "ForEachWatermarkEntry",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Get Watermark table data",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Get Watermark table data').output.value",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "Copy incremental and full load",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureSqlSource",
+											"sqlReaderQuery": {
+												"value": "@if(\n    not(equals(item().LASTMODIFIEDVALUE, null)),\n    concat(\n        'SELECT * FROM ',\n        item().SCHEMANAME,\n        '.',\n        item().TABLENAME,\n        ' WHERE ',\n        item().DELTACOLUMN,\n        ' > ''',\n        item().LASTMODIFIEDVALUE,\n        ''''\n    ),\n    concat(\n        'SELECT * FROM ',\n        item().SCHEMANAME,\n        '.',\n        item().TABLENAME\n    )\n)",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "DelimitedTextSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "DelimitedTextWriteSettings",
+												"quoteAllText": true,
+												"fileExtension": ".csv"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "QueryTable",
+											"type": "DatasetReference",
+											"parameters": {}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DelimitedText1",
+											"type": "DatasetReference",
+											"parameters": {
+												"FOLDERNAME": {
+													"value": "@item().FOLDERNAME",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "If Condition1",
+									"type": "IfCondition",
+									"dependsOn": [
+										{
+											"activity": "Copy incremental and full load",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@not(equals(item().LASTMODIFIEDVALUE, null))",
+											"type": "Expression"
+										},
+										"ifTrueActivities": [
+											{
+												"name": "Lookup Max Value",
+												"type": "Lookup",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"source": {
+														"type": "AzureSqlSource",
+														"sqlReaderQuery": {
+															"value": "select max(@{item().DELTACOLUMN}) AS maxvalue from @{item().SCHEMANAME}.@{item().TABLENAME}\n",
+															"type": "Expression"
+														},
+														"queryTimeout": "02:00:00",
+														"partitionOption": "None"
+													},
+													"dataset": {
+														"referenceName": "QueryTable",
+														"type": "DatasetReference",
+														"parameters": {}
+													}
+												}
+											},
+											{
+												"name": "Update Max value in watermark table",
+												"type": "SqlServerStoredProcedure",
+												"dependsOn": [
+													{
+														"activity": "Lookup Max Value",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"storedProcedureName": "[dbo].[UpdateWatermark2]",
+													"storedProcedureParameters": {
+														"LASTMODIFIEDVALUE": {
+															"value": {
+																"value": "@activity('Lookup Max Value').output.firstRow.maxvalue",
+																"type": "Expression"
+															},
+															"type": "String"
+														},
+														"TABLENAME": {
+															"value": {
+																"value": "@item().TABLENAME",
+																"type": "Expression"
+															},
+															"type": "String"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "SqlLinkedService",
+													"type": "LinkedServiceReference"
+												}
+											}
+										]
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-10-03T21:54:29Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DynamicTable')]",
+				"[concat(variables('workspaceId'), '/datasets/QueryTable')]",
+				"[concat(variables('workspaceId'), '/datasets/DelimitedText1')]",
+				"[concat(variables('workspaceId'), '/linkedServices/SqlLinkedService')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SCDType1')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "df_scdType1",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "df_scdType1",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"sourceCsv": {},
+									"sinkSql": {},
+									"InsertSink": {},
+									"UpdateSink": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-10-07T21:48:49Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/dataflows/df_scdType1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SCDType2')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "df_scdType2",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "df_scdType2",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"sourceCsv": {},
+									"target": {},
+									"InsertSink": {},
+									"UpdateSink": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-10-12T21:07:01Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/dataflows/df_scdType2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Synapse CopyData')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "LookUp Metadata",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DynamicTable",
+								"type": "DatasetReference",
+								"parameters": {
+									"TableName": "METADATA",
+									"SchemaName": "dbo"
+								}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "ForEachTableInMetadata",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "LookUp Metadata",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('LookUp Metadata').output.value",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "CopySqlToSynapse",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "AzureSqlSource",
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "DelimitedTextSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "DelimitedTextWriteSettings",
+												"quoteAllText": true,
+												"fileExtension": ".csv"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DynamicTable",
+											"type": "DatasetReference",
+											"parameters": {
+												"TableName": {
+													"value": "@item().TableName",
+													"type": "Expression"
+												},
+												"SchemaName": {
+													"value": "@item().SCHEMANAME",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DelimitedText1",
+											"type": "DatasetReference",
+											"parameters": {
+												"FOLDERNAME": {
+													"value": "@item().FOLDERNAME",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-09-28T21:44:38Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DynamicTable')]",
+				"[concat(variables('workspaceId'), '/datasets/DelimitedText1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/AzureSqlTable1')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "SqlLinkedService",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "CustomerID",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "NameStyle",
+						"type": "bit"
+					},
+					{
+						"name": "Title",
+						"type": "nvarchar"
+					},
+					{
+						"name": "FirstName",
+						"type": "nvarchar"
+					},
+					{
+						"name": "MiddleName",
+						"type": "nvarchar"
+					},
+					{
+						"name": "LastName",
+						"type": "nvarchar"
+					},
+					{
+						"name": "Suffix",
+						"type": "nvarchar"
+					},
+					{
+						"name": "CompanyName",
+						"type": "nvarchar"
+					},
+					{
+						"name": "SalesPerson",
+						"type": "nvarchar"
+					},
+					{
+						"name": "EmailAddress",
+						"type": "nvarchar"
+					},
+					{
+						"name": "Phone",
+						"type": "nvarchar"
+					},
+					{
+						"name": "PasswordHash",
+						"type": "varchar"
+					},
+					{
+						"name": "PasswordSalt",
+						"type": "varchar"
+					},
+					{
+						"name": "rowguid",
+						"type": "uniqueidentifier"
+					},
+					{
+						"name": "ModifiedDate",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					}
+				],
+				"typeProperties": {
+					"schema": "SalesLT",
+					"table": "Customer"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/SqlLinkedService')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/CustomerCsv')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorage1",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": "Customer.csv",
+						"folderPath": "SalesLT/Customer",
+						"fileSystem": "synapse"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"name": "CustomerID",
+						"type": "String"
+					},
+					{
+						"name": "NameStyle",
+						"type": "String"
+					},
+					{
+						"name": "Title",
+						"type": "String"
+					},
+					{
+						"name": "FirstName",
+						"type": "String"
+					},
+					{
+						"name": "MiddleName",
+						"type": "String"
+					},
+					{
+						"name": "LastName",
+						"type": "String"
+					},
+					{
+						"name": "Suffix",
+						"type": "String"
+					},
+					{
+						"name": "CompanyName",
+						"type": "String"
+					},
+					{
+						"name": "SalesPerson",
+						"type": "String"
+					},
+					{
+						"name": "EmailAddress",
+						"type": "String"
+					},
+					{
+						"name": "Phone",
+						"type": "String"
+					},
+					{
+						"name": "PasswordHash",
+						"type": "String"
+					},
+					{
+						"name": "PasswordSalt",
+						"type": "String"
+					},
+					{
+						"name": "rowguid",
+						"type": "String"
+					},
+					{
+						"name": "ModifiedDate",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/AzureDataLakeStorage1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DataMappingOutputCsv')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorage1",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": "DataMapping",
+						"fileSystem": "synapse"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/AzureDataLakeStorage1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DelimitedText1')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorage1",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"FOLDERNAME": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@dataset().FOLDERNAME",
+							"type": "Expression"
+						},
+						"fileSystem": "synapse"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/AzureDataLakeStorage1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DelimitedText2')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorage1",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileSystem": "synapse"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"name": "CustomerID",
+						"type": "String"
+					},
+					{
+						"name": "Title",
+						"type": "String"
+					},
+					{
+						"name": "FirstName",
+						"type": "String"
+					},
+					{
+						"name": "LastName",
+						"type": "String"
+					},
+					{
+						"name": "CompanyName",
+						"type": "String"
+					},
+					{
+						"name": "SalesPerson",
+						"type": "String"
+					},
+					{
+						"name": "EmailAddress",
+						"type": "String"
+					},
+					{
+						"name": "Phone",
+						"type": "String"
+					},
+					{
+						"name": "AddressID",
+						"type": "String"
+					},
+					{
+						"name": "AddressType",
+						"type": "String"
+					},
+					{
+						"name": "AddressLine1",
+						"type": "String"
+					},
+					{
+						"name": "AddressLine2",
+						"type": "String"
+					},
+					{
+						"name": "City",
+						"type": "String"
+					},
+					{
+						"name": "StateProvince",
+						"type": "String"
+					},
+					{
+						"name": "CountryRegion",
+						"type": "String"
+					},
+					{
+						"name": "PostalCode",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/AzureDataLakeStorage1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DelimitedText3')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorage1",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": "dbo.Customer.csv",
+						"fileSystem": "synapse"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/AzureDataLakeStorage1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DynamicTable')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "SqlLinkedService",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"TableName": {
+						"type": "string"
+					},
+					"SchemaName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "ID",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "TABLENAME",
+						"type": "varchar"
+					},
+					{
+						"name": "SCHEMANAME",
+						"type": "varchar"
+					},
+					{
+						"name": "FOLDERNAME",
+						"type": "varchar"
+					}
+				],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().SchemaName",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().TableName",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/SqlLinkedService')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/OnPremiseSql')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "OnPremiseSqlLinkedService",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [
+					{
+						"name": "Id",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "Name",
+						"type": "varchar"
+					},
+					{
+						"name": "Address",
+						"type": "varchar"
+					},
+					{
+						"name": "Email",
+						"type": "varchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "Customer"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/OnPremiseSqlLinkedService')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Parquet1')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorage1",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileSystem": "synapse"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/AzureDataLakeStorage1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/QueryTable')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "SqlLinkedService",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/SqlLinkedService')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/AzureDataLakeStorage1')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('AzureDataLakeStorage1_properties_typeProperties_url')]",
+					"accountKey": {
+						"type": "SecureString",
+						"value": "[parameters('AzureDataLakeStorage1_accountKey')]"
+					}
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/OnPremiseSqlLinkedService')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "SqlServer",
+				"typeProperties": {
+					"server": "[parameters('OnPremiseSqlLinkedService_properties_typeProperties_server')]",
+					"database": "[parameters('OnPremiseSqlLinkedService_properties_typeProperties_database')]",
+					"encrypt": "optional",
+					"trustServerCertificate": false,
+					"authenticationType": "SQL",
+					"userName": "[parameters('OnPremiseSqlLinkedService_properties_typeProperties_userName')]",
+					"password": {
+						"type": "SecureString",
+						"value": "[parameters('OnPremiseSqlLinkedService_password')]"
+					}
+				},
+				"connectVia": {
+					"referenceName": "SelfHosted",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/SelfHosted')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SqlLinkedService')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"server": "[parameters('SqlLinkedService_properties_typeProperties_server')]",
+					"database": "[parameters('SqlLinkedService_properties_typeProperties_database')]",
+					"encrypt": "mandatory",
+					"trustServerCertificate": false,
+					"authenticationType": "SQL",
+					"userName": "[parameters('SqlLinkedService_properties_typeProperties_userName')]",
+					"password": {
+						"type": "SecureString",
+						"value": "[parameters('SqlLinkedService_password')]"
+					}
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/ncplsynapse-WorkspaceDefaultSqlServer')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"parameters": {
+					"DBName": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlDW",
+				"typeProperties": {
+					"connectionString": "[parameters('ncplsynapse-WorkspaceDefaultSqlServer_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/ncplsynapse-WorkspaceDefaultStorage')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('ncplsynapse-WorkspaceDefaultStorage_properties_typeProperties_url')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/AutoResolveIntegrationRuntime')]",
+			"type": "Microsoft.Synapse/workspaces/integrationRuntimes",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "Managed",
+				"typeProperties": {
+					"computeProperties": {
+						"location": "AutoResolve",
+						"dataFlowProperties": {
+							"computeType": "General",
+							"coreCount": 8,
+							"timeToLive": 0
+						}
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/OnPremiseSql')]",
+			"type": "Microsoft.Synapse/workspaces/integrationRuntimes",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "SelfHosted",
+				"typeProperties": {}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SelfHosted')]",
+			"type": "Microsoft.Synapse/workspaces/integrationRuntimes",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "SelfHosted",
+				"typeProperties": {}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Dataflow1')]",
+			"type": "Microsoft.Synapse/workspaces/dataflows",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "AzureSqlTable1",
+								"type": "DatasetReference"
+							},
+							"name": "SQL"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "DataMappingOutputCsv",
+								"type": "DatasetReference"
+							},
+							"name": "sink1",
+							"rejectedDataLinkedService": {
+								"referenceName": "AzureDataLakeStorage1",
+								"type": "LinkedServiceReference"
+							}
+						}
+					],
+					"transformations": [
+						{
+							"name": "FilterByTitleMr"
+						},
+						{
+							"name": "SortByNameAsc"
+						},
+						{
+							"name": "derivedColumn1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          CustomerID as integer,",
+						"          NameStyle as boolean,",
+						"          Title as string,",
+						"          FirstName as string,",
+						"          MiddleName as string,",
+						"          LastName as string,",
+						"          Suffix as string,",
+						"          CompanyName as string,",
+						"          SalesPerson as string,",
+						"          EmailAddress as string,",
+						"          Phone as string,",
+						"          PasswordHash as string,",
+						"          PasswordSalt as string,",
+						"          rowguid as string,",
+						"          ModifiedDate as timestamp",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     format: 'table') ~> SQL",
+						"SQL filter(Title=='Mr.') ~> FilterByTitleMr",
+						"FilterByTitleMr sort(asc(FirstName, true),",
+						"     caseInsensitive: true) ~> SortByNameAsc",
+						"SortByNameAsc derive(FullName = concat(FirstName, ' ',  LastName)) ~> derivedColumn1",
+						"derivedColumn1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/AzureSqlTable1')]",
+				"[concat(variables('workspaceId'), '/datasets/DataMappingOutputCsv')]",
+				"[concat(variables('workspaceId'), '/linkedServices/AzureDataLakeStorage1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/JoinDataflow1')]",
+			"type": "Microsoft.Synapse/workspaces/dataflows",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "SqlLinkedService",
+								"type": "LinkedServiceReference"
+							},
+							"name": "Customer"
+						},
+						{
+							"linkedService": {
+								"referenceName": "SqlLinkedService",
+								"type": "LinkedServiceReference"
+							},
+							"name": "CustomerAddress"
+						},
+						{
+							"linkedService": {
+								"referenceName": "SqlLinkedService",
+								"type": "LinkedServiceReference"
+							},
+							"name": "Address"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorage1",
+								"type": "LinkedServiceReference"
+							},
+							"name": "MainOfficeSink"
+						},
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorage1",
+								"type": "LinkedServiceReference"
+							},
+							"name": "OtherAddressSink"
+						}
+					],
+					"transformations": [
+						{
+							"name": "CustomerSelectFilter"
+						},
+						{
+							"name": "CustomerAddressSelectFilter"
+						},
+						{
+							"name": "AddressSelectFilter"
+						},
+						{
+							"name": "FirstJoin"
+						},
+						{
+							"name": "SecondJoin"
+						},
+						{
+							"name": "SelectAfterJoin"
+						},
+						{
+							"name": "SplitByAddressType"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          CustomerID as integer,",
+						"          NameStyle as boolean,",
+						"          Title as string,",
+						"          FirstName as string,",
+						"          MiddleName as string,",
+						"          LastName as string,",
+						"          Suffix as string,",
+						"          CompanyName as string,",
+						"          SalesPerson as string,",
+						"          EmailAddress as string,",
+						"          Phone as string,",
+						"          PasswordHash as string,",
+						"          PasswordSalt as string,",
+						"          rowguid as string,",
+						"          ModifiedDate as timestamp",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'SalesLT',",
+						"     tableName: 'Customer',",
+						"     isolationLevel: 'READ_UNCOMMITTED') ~> Customer",
+						"source(output(",
+						"          CustomerID as integer,",
+						"          AddressID as integer,",
+						"          AddressType as string,",
+						"          rowguid as string,",
+						"          ModifiedDate as timestamp",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'SalesLT',",
+						"     tableName: 'CustomerAddress',",
+						"     isolationLevel: 'READ_UNCOMMITTED') ~> CustomerAddress",
+						"source(output(",
+						"          AddressID as integer,",
+						"          AddressLine1 as string,",
+						"          AddressLine2 as string,",
+						"          City as string,",
+						"          StateProvince as string,",
+						"          CountryRegion as string,",
+						"          PostalCode as string,",
+						"          rowguid as string,",
+						"          ModifiedDate as timestamp",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'SalesLT',",
+						"     tableName: 'Address',",
+						"     isolationLevel: 'READ_UNCOMMITTED') ~> Address",
+						"Customer select(mapColumn(",
+						"          CustomerID,",
+						"          Title,",
+						"          FirstName,",
+						"          LastName,",
+						"          CompanyName,",
+						"          SalesPerson,",
+						"          EmailAddress,",
+						"          Phone",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> CustomerSelectFilter",
+						"CustomerAddress select(mapColumn(",
+						"          CustomerID,",
+						"          AddressID,",
+						"          AddressType",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> CustomerAddressSelectFilter",
+						"Address select(mapColumn(",
+						"          AddressID,",
+						"          AddressLine1,",
+						"          AddressLine2,",
+						"          City,",
+						"          StateProvince,",
+						"          CountryRegion,",
+						"          PostalCode",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> AddressSelectFilter",
+						"CustomerSelectFilter, CustomerAddressSelectFilter join(CustomerSelectFilter@CustomerID == CustomerAddressSelectFilter@CustomerID,",
+						"     joinType:'inner',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> FirstJoin",
+						"FirstJoin, AddressSelectFilter join(CustomerAddressSelectFilter@AddressID == AddressSelectFilter@AddressID,",
+						"     joinType:'inner',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> SecondJoin",
+						"SecondJoin select(mapColumn(",
+						"          CustomerID = CustomerSelectFilter@CustomerID,",
+						"          Title,",
+						"          FirstName,",
+						"          LastName,",
+						"          CompanyName,",
+						"          SalesPerson,",
+						"          EmailAddress,",
+						"          Phone,",
+						"          AddressID = CustomerAddressSelectFilter@AddressID,",
+						"          AddressType,",
+						"          AddressLine1,",
+						"          AddressLine2,",
+						"          City,",
+						"          StateProvince,",
+						"          CountryRegion,",
+						"          PostalCode",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> SelectAfterJoin",
+						"SelectAfterJoin split(AddressType == 'Main Office',",
+						"     disjoint: false) ~> SplitByAddressType@(MainOffice, Others)",
+						"SplitByAddressType@MainOffice sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'synapse',",
+						"     folderPath: 'DataMapping/Join/MainOffice',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> MainOfficeSink",
+						"SplitByAddressType@Others sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'synapse',",
+						"     folderPath: 'DataMapping/Join/Others',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> OtherAddressSink"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/SqlLinkedService')]",
+				"[concat(variables('workspaceId'), '/linkedServices/AzureDataLakeStorage1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/df_scdType1')]",
+			"type": "Microsoft.Synapse/workspaces/dataflows",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorage1",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sourceCsv"
+						},
+						{
+							"linkedService": {
+								"referenceName": "SqlLinkedService",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sinkSql"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "SqlLinkedService",
+								"type": "LinkedServiceReference"
+							},
+							"name": "InsertSink"
+						},
+						{
+							"linkedService": {
+								"referenceName": "SqlLinkedService",
+								"type": "LinkedServiceReference"
+							},
+							"name": "UpdateSink"
+						}
+					],
+					"transformations": [
+						{
+							"name": "renameSourceColumns"
+						},
+						{
+							"name": "addHash"
+						},
+						{
+							"name": "InsertOrUpdate"
+						},
+						{
+							"name": "leftJoinCsvAndSql"
+						},
+						{
+							"name": "AddCreateUpdatedDates"
+						},
+						{
+							"name": "AddUpdatedDate"
+						},
+						{
+							"name": "AlterRowPermission"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          EmployeeId as short,",
+						"          Name as string,",
+						"          Address as string,",
+						"          Email as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'synapse',",
+						"     folderPath: 'SCD',",
+						"     fileName: 'Employee.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> sourceCsv",
+						"source(output(",
+						"          Id as integer,",
+						"          Name as string,",
+						"          Address as string,",
+						"          Email as string,",
+						"          Hash as long",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'dbo',",
+						"     tableName: 'EMPLOYEE',",
+						"     isolationLevel: 'READ_UNCOMMITTED') ~> sinkSql",
+						"sourceCsv select(mapColumn(",
+						"          each(match(1==1),",
+						"               concat('src_',$$) = $$)",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> renameSourceColumns",
+						"renameSourceColumns derive(src_Hash = crc32(src_EmployeeId,src_Name,src_Address,src_Email)) ~> addHash",
+						"leftJoinCsvAndSql split(isNull(Id),",
+						"     src_EmployeeId == Id && src_Hash != Hash,",
+						"     disjoint: false) ~> InsertOrUpdate@(insert, update)",
+						"addHash, sinkSql join(src_EmployeeId == Id,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> leftJoinCsvAndSql",
+						"InsertOrUpdate@insert derive(src_CreatedDate = currentTimestamp(),",
+						"          src_UpdatedDate = currentTimestamp()) ~> AddCreateUpdatedDates",
+						"InsertOrUpdate@update derive(src_UpdatedDate = currentTimestamp()) ~> AddUpdatedDate",
+						"AddUpdatedDate alterRow(updateIf(1==1)) ~> AlterRowPermission",
+						"AddCreateUpdatedDates sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          Id as integer,",
+						"          Name as string,",
+						"          Address as string,",
+						"          Email as string,",
+						"          CreatedDate as timestamp,",
+						"          UpdatedDate as timestamp,",
+						"          Hash as long",
+						"     ),",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'dbo',",
+						"     tableName: 'EMPLOYEE',",
+						"     insertable: true,",
+						"     updateable: false,",
+						"     deletable: false,",
+						"     upsertable: false,",
+						"     stagingSchemaName: '',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          Id = src_EmployeeId,",
+						"          Name = src_Name,",
+						"          Address = src_Address,",
+						"          Email = src_Email,",
+						"          CreatedDate = src_CreatedDate,",
+						"          UpdatedDate = src_UpdatedDate,",
+						"          Hash = src_Hash",
+						"     ),",
+						"     preCommands: [],",
+						"     postCommands: []) ~> InsertSink",
+						"AlterRowPermission sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          Id as integer,",
+						"          Name as string,",
+						"          Address as string,",
+						"          Email as string,",
+						"          CreatedDate as timestamp,",
+						"          UpdatedDate as timestamp,",
+						"          Hash as long",
+						"     ),",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'dbo',",
+						"     tableName: 'Employee',",
+						"     insertable: false,",
+						"     updateable: true,",
+						"     deletable: false,",
+						"     upsertable: false,",
+						"     keys:['Id'],",
+						"     stagingSchemaName: '',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          Id,",
+						"          Name = src_Name,",
+						"          Address = src_Address,",
+						"          Email = src_Email,",
+						"          UpdatedDate = src_UpdatedDate,",
+						"          Hash = src_Hash",
+						"     )) ~> UpdateSink"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/AzureDataLakeStorage1')]",
+				"[concat(variables('workspaceId'), '/linkedServices/SqlLinkedService')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/df_scdType2')]",
+			"type": "Microsoft.Synapse/workspaces/dataflows",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorage1",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sourceCsv"
+						},
+						{
+							"linkedService": {
+								"referenceName": "SqlLinkedService",
+								"type": "LinkedServiceReference"
+							},
+							"name": "target"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "SqlLinkedService",
+								"type": "LinkedServiceReference"
+							},
+							"name": "InsertSink"
+						},
+						{
+							"linkedService": {
+								"referenceName": "SqlLinkedService",
+								"type": "LinkedServiceReference"
+							},
+							"name": "UpdateSink"
+						}
+					],
+					"transformations": [
+						{
+							"name": "renameSourceColumns"
+						},
+						{
+							"name": "addHash"
+						},
+						{
+							"name": "InsertOrUpdate"
+						},
+						{
+							"name": "leftJoinCsvAndSql"
+						},
+						{
+							"name": "AddCreateUpdatedDates"
+						},
+						{
+							"name": "AddUpdatedDate"
+						},
+						{
+							"name": "AlterRowPermission"
+						},
+						{
+							"name": "onlyActiveRows"
+						},
+						{
+							"name": "UnionUpdate"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          EmployeeId as short,",
+						"          Name as string,",
+						"          Address as string,",
+						"          Email as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'synapse',",
+						"     folderPath: 'SCD',",
+						"     fileName: 'EmployeeScdType2.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> sourceCsv",
+						"source(output(",
+						"          Id as integer,",
+						"          Name as string,",
+						"          Address as string,",
+						"          Email as string,",
+						"          CreatedDate as timestamp,",
+						"          UpdatedDate as timestamp,",
+						"          Hash as long,",
+						"          isActive as long",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'dbo',",
+						"     tableName: 'EmployeeScdType2',",
+						"     isolationLevel: 'READ_UNCOMMITTED') ~> target",
+						"sourceCsv select(mapColumn(",
+						"          each(match(1==1),",
+						"               concat('src_',$$) = $$)",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> renameSourceColumns",
+						"renameSourceColumns derive(src_Hash = crc32(src_EmployeeId,src_Name,src_Address,src_Email)) ~> addHash",
+						"leftJoinCsvAndSql split(isNull(Id),",
+						"     src_EmployeeId == Id && src_Hash != Hash,",
+						"     disjoint: false) ~> InsertOrUpdate@(insert, update)",
+						"addHash, onlyActiveRows join(src_EmployeeId == Id,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> leftJoinCsvAndSql",
+						"UnionUpdate derive(src_CreatedDate = currentTimestamp(),",
+						"          src_UpdatedDate = currentTimestamp(),",
+						"          src_isActive = 1) ~> AddCreateUpdatedDates",
+						"InsertOrUpdate@update derive(src_isActive = 0,",
+						"          src_UpdatedDate = currentTimestamp()) ~> AddUpdatedDate",
+						"AddUpdatedDate alterRow(updateIf(1==1)) ~> AlterRowPermission",
+						"target filter(isActive == 1) ~> onlyActiveRows",
+						"InsertOrUpdate@insert, InsertOrUpdate@update union(byName: true)~> UnionUpdate",
+						"AddCreateUpdatedDates sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          Id as integer,",
+						"          Name as string,",
+						"          Address as string,",
+						"          Email as string,",
+						"          CreatedDate as timestamp,",
+						"          UpdatedDate as timestamp,",
+						"          Hash as long,",
+						"          isActive as long",
+						"     ),",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'dbo',",
+						"     tableName: 'EmployeeScdType2',",
+						"     insertable: true,",
+						"     updateable: false,",
+						"     deletable: false,",
+						"     upsertable: false,",
+						"     stagingSchemaName: '',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          Id = src_EmployeeId,",
+						"          Name = src_Name,",
+						"          Address = src_Address,",
+						"          Email = src_Email,",
+						"          CreatedDate = src_CreatedDate,",
+						"          UpdatedDate = src_UpdatedDate,",
+						"          Hash = src_Hash,",
+						"          isActive = src_isActive",
+						"     ),",
+						"     preCommands: [],",
+						"     postCommands: []) ~> InsertSink",
+						"AlterRowPermission sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          Id as integer,",
+						"          Name as string,",
+						"          Address as string,",
+						"          Email as string,",
+						"          CreatedDate as timestamp,",
+						"          UpdatedDate as timestamp,",
+						"          Hash as long,",
+						"          isActive as long",
+						"     ),",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'dbo',",
+						"     tableName: 'EmployeeScdType2',",
+						"     insertable: false,",
+						"     updateable: true,",
+						"     deletable: false,",
+						"     upsertable: false,",
+						"     keys:['Hash'],",
+						"     stagingSchemaName: '',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          UpdatedDate = src_UpdatedDate,",
+						"          Hash,",
+						"          isActive = src_isActive",
+						"     )) ~> UpdateSink"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/AzureDataLakeStorage1')]",
+				"[concat(variables('workspaceId'), '/linkedServices/SqlLinkedService')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/WorkspaceSystemIdentity')]",
+			"type": "Microsoft.Synapse/workspaces/credentials",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "ManagedIdentity",
+				"typeProperties": {}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SQL script 1')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "-- This is auto-generated code\nSELECT\n    TOP 100 *\nFROM\n    OPENROWSET(\n        BULK 'https://adlsgen2ncpl85.dfs.core.windows.net/synapse/dbo.Customer.csv',\n        FORMAT = 'CSV',\n        PARSER_VERSION = '2.0',\n        HEADER_ROW = True\n    ) AS [result]\n",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "master",
+						"poolName": "Built-in"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		}
+	]
+}

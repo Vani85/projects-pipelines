@@ -1,0 +1,45 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"workspaceName": {
+			"value": "ncplsynapse"
+		},
+		"AzureDataLakeStorage1_accountKey": {
+			"value": ""
+		},
+		"OnPremiseSqlLinkedService_password": {
+			"value": ""
+		},
+		"SqlLinkedService_password": {
+			"value": ""
+		},
+		"ncplsynapse-WorkspaceDefaultSqlServer_connectionString": {
+			"value": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=tcp:ncplsynapse.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName}"
+		},
+		"AzureDataLakeStorage1_properties_typeProperties_url": {
+			"value": "https://adlsgen2ncpl85.dfs.core.windows.net/"
+		},
+		"OnPremiseSqlLinkedService_properties_typeProperties_server": {
+			"value": "ncplvm85"
+		},
+		"OnPremiseSqlLinkedService_properties_typeProperties_database": {
+			"value": "OnPremiseDemo"
+		},
+		"OnPremiseSqlLinkedService_properties_typeProperties_userName": {
+			"value": "azureuser"
+		},
+		"SqlLinkedService_properties_typeProperties_server": {
+			"value": "adfncplserver.database.windows.net"
+		},
+		"SqlLinkedService_properties_typeProperties_database": {
+			"value": "adfncpldb"
+		},
+		"SqlLinkedService_properties_typeProperties_userName": {
+			"value": "ncpladmin"
+		},
+		"ncplsynapse-WorkspaceDefaultStorage_properties_typeProperties_url": {
+			"value": "https://adlsgen2ncpl85.dfs.core.windows.net"
+		}
+	}
+}
