@@ -1,0 +1,6 @@
+{
+	"name": "OnPremiseSql",
+	"properties": {
+		"type": "SelfHosted"
+	}
+}

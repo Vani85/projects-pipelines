@@ -1,0 +1,214 @@
+{
+	"name": "Project3",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get Watermark table data",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DynamicTable",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableName": "WATERMARK2",
+							"SchemaName": "dbo"
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEachWatermarkEntry",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get Watermark table data",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get Watermark table data').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Copy incremental and full load",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderQuery": {
+										"value": "@if(\n    not(equals(item().LASTMODIFIEDVALUE, null)),\n    concat(\n        'SELECT * FROM ',\n        item().SCHEMANAME,\n        '.',\n        item().TABLENAME,\n        ' WHERE ',\n        item().DELTACOLUMN,\n        ' > ''',\n        item().LASTMODIFIEDVALUE,\n        ''''\n    ),\n    concat(\n        'SELECT * FROM ',\n        item().SCHEMANAME,\n        '.',\n        item().TABLENAME\n    )\n)",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "DelimitedTextSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings"
+									},
+									"formatSettings": {
+										"type": "DelimitedTextWriteSettings",
+										"quoteAllText": true,
+										"fileExtension": ".csv"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "QueryTable",
+									"type": "DatasetReference"
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "DelimitedText1",
+									"type": "DatasetReference",
+									"parameters": {
+										"FOLDERNAME": {
+											"value": "@item().FOLDERNAME",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "If Condition1",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "Copy incremental and full load",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@not(equals(item().LASTMODIFIEDVALUE, null))",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Lookup Max Value",
+										"type": "Lookup",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "AzureSqlSource",
+												"sqlReaderQuery": {
+													"value": "select max(@{item().DELTACOLUMN}) AS maxvalue from @{item().SCHEMANAME}.@{item().TABLENAME}\n",
+													"type": "Expression"
+												},
+												"queryTimeout": "02:00:00",
+												"partitionOption": "None"
+											},
+											"dataset": {
+												"referenceName": "QueryTable",
+												"type": "DatasetReference"
+											}
+										}
+									},
+									{
+										"name": "Update Max value in watermark table",
+										"type": "SqlServerStoredProcedure",
+										"dependsOn": [
+											{
+												"activity": "Lookup Max Value",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"storedProcedureName": "[dbo].[UpdateWatermark2]",
+											"storedProcedureParameters": {
+												"LASTMODIFIEDVALUE": {
+													"value": {
+														"value": "@activity('Lookup Max Value').output.firstRow.maxvalue",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"TABLENAME": {
+													"value": {
+														"value": "@item().TABLENAME",
+														"type": "Expression"
+													},
+													"type": "String"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "SqlLinkedService",
+											"type": "LinkedServiceReference"
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2026-10-03T21:54:29Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

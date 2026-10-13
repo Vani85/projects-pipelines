@@ -1,0 +1,195 @@
+{
+	"name": "df_scdType2",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorage1",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sourceCsv"
+				},
+				{
+					"linkedService": {
+						"referenceName": "SqlLinkedService",
+						"type": "LinkedServiceReference"
+					},
+					"name": "target"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "SqlLinkedService",
+						"type": "LinkedServiceReference"
+					},
+					"name": "InsertSink"
+				},
+				{
+					"linkedService": {
+						"referenceName": "SqlLinkedService",
+						"type": "LinkedServiceReference"
+					},
+					"name": "UpdateSink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "renameSourceColumns"
+				},
+				{
+					"name": "addHash"
+				},
+				{
+					"name": "InsertOrUpdate"
+				},
+				{
+					"name": "leftJoinCsvAndSql"
+				},
+				{
+					"name": "AddCreateUpdatedDates"
+				},
+				{
+					"name": "AddUpdatedDate"
+				},
+				{
+					"name": "AlterRowPermission"
+				},
+				{
+					"name": "onlyActiveRows"
+				},
+				{
+					"name": "UnionUpdate"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          EmployeeId as short,",
+				"          Name as string,",
+				"          Address as string,",
+				"          Email as string",
+				"     ),",
+				"     useSchema: false,",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'delimited',",
+				"     fileSystem: 'synapse',",
+				"     folderPath: 'SCD',",
+				"     fileName: 'EmployeeScdType2.csv',",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true) ~> sourceCsv",
+				"source(output(",
+				"          Id as integer,",
+				"          Name as string,",
+				"          Address as string,",
+				"          Email as string,",
+				"          CreatedDate as timestamp,",
+				"          UpdatedDate as timestamp,",
+				"          Hash as long,",
+				"          isActive as long",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table',",
+				"     store: 'sqlserver',",
+				"     schemaName: 'dbo',",
+				"     tableName: 'EmployeeScdType2',",
+				"     isolationLevel: 'READ_UNCOMMITTED') ~> target",
+				"sourceCsv select(mapColumn(",
+				"          each(match(1==1),",
+				"               concat('src_',$$) = $$)",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> renameSourceColumns",
+				"renameSourceColumns derive(src_Hash = crc32(src_EmployeeId,src_Name,src_Address,src_Email)) ~> addHash",
+				"leftJoinCsvAndSql split(isNull(Id),",
+				"     src_EmployeeId == Id && src_Hash != Hash,",
+				"     disjoint: false) ~> InsertOrUpdate@(insert, update)",
+				"addHash, onlyActiveRows join(src_EmployeeId == Id,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> leftJoinCsvAndSql",
+				"UnionUpdate derive(src_CreatedDate = currentTimestamp(),",
+				"          src_UpdatedDate = currentTimestamp(),",
+				"          src_isActive = 1) ~> AddCreateUpdatedDates",
+				"InsertOrUpdate@update derive(src_isActive = 0,",
+				"          src_UpdatedDate = currentTimestamp()) ~> AddUpdatedDate",
+				"AddUpdatedDate alterRow(updateIf(1==1)) ~> AlterRowPermission",
+				"target filter(isActive == 1) ~> onlyActiveRows",
+				"InsertOrUpdate@insert, InsertOrUpdate@update union(byName: true)~> UnionUpdate",
+				"AddCreateUpdatedDates sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          Id as integer,",
+				"          Name as string,",
+				"          Address as string,",
+				"          Email as string,",
+				"          CreatedDate as timestamp,",
+				"          UpdatedDate as timestamp,",
+				"          Hash as long,",
+				"          isActive as long",
+				"     ),",
+				"     format: 'table',",
+				"     store: 'sqlserver',",
+				"     schemaName: 'dbo',",
+				"     tableName: 'EmployeeScdType2',",
+				"     insertable: true,",
+				"     updateable: false,",
+				"     deletable: false,",
+				"     upsertable: false,",
+				"     stagingSchemaName: '',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          Id = src_EmployeeId,",
+				"          Name = src_Name,",
+				"          Address = src_Address,",
+				"          Email = src_Email,",
+				"          CreatedDate = src_CreatedDate,",
+				"          UpdatedDate = src_UpdatedDate,",
+				"          Hash = src_Hash,",
+				"          isActive = src_isActive",
+				"     ),",
+				"     preCommands: [],",
+				"     postCommands: []) ~> InsertSink",
+				"AlterRowPermission sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          Id as integer,",
+				"          Name as string,",
+				"          Address as string,",
+				"          Email as string,",
+				"          CreatedDate as timestamp,",
+				"          UpdatedDate as timestamp,",
+				"          Hash as long,",
+				"          isActive as long",
+				"     ),",
+				"     format: 'table',",
+				"     store: 'sqlserver',",
+				"     schemaName: 'dbo',",
+				"     tableName: 'EmployeeScdType2',",
+				"     insertable: false,",
+				"     updateable: true,",
+				"     deletable: false,",
+				"     upsertable: false,",
+				"     keys:['Hash'],",
+				"     stagingSchemaName: '',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          UpdatedDate = src_UpdatedDate,",
+				"          Hash,",
+				"          isActive = src_isActive",
+				"     )) ~> UpdateSink"
+			]
+		}
+	}
+}

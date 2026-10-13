@@ -1,0 +1,212 @@
+{
+	"name": "Incremental CopyData",
+	"properties": {
+		"activities": [
+			{
+				"name": "LookUp Watermark",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DynamicTable",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableName": "WATERMARK",
+							"SchemaName": "dbo"
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEachTableInWatermark",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "LookUp Watermark",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('LookUp Watermark').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "CopySqlToSynapse",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderQuery": {
+										"value": "SELECT *\nFROM @{item().SCHEMANAME}.@{item().TABLENAME}\nWHERE @{item().DELTACOLUMN} > '@{item().LASTMODIFIEDDATE}'",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"sink": {
+									"type": "DelimitedTextSink",
+									"storeSettings": {
+										"type": "AzureBlobFSWriteSettings"
+									},
+									"formatSettings": {
+										"type": "DelimitedTextWriteSettings",
+										"quoteAllText": true,
+										"fileExtension": ".csv"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "DynamicTable",
+									"type": "DatasetReference",
+									"parameters": {
+										"TableName": "''",
+										"SchemaName": "''"
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "DelimitedText1",
+									"type": "DatasetReference",
+									"parameters": {
+										"FOLDERNAME": {
+											"value": "@item().FOLDERNAME",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "Update Last Modified date in Watermark table",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Look up max of Modified date",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[UpdateWatermark]",
+								"storedProcedureParameters": {
+									"LASTMODIFIEDDATE": {
+										"value": {
+											"value": "@activity('Look up max of Modified date').output.value[0].maxvalue",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"TABLENAME": {
+										"value": {
+											"value": "@item().TABLENAME",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "SqlLinkedService",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Look up max of Modified date",
+							"type": "Lookup",
+							"dependsOn": [
+								{
+									"activity": "CopySqlToSynapse",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderQuery": {
+										"value": "select max(@{item().DELTACOLUMN}) AS maxvalue from @{item().SCHEMANAME}.@{item().TABLENAME}\n",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "DynamicTable",
+									"type": "DatasetReference",
+									"parameters": {
+										"TableName": {
+											"value": "@item().TABLENAME",
+											"type": "Expression"
+										},
+										"SchemaName": "''"
+									}
+								},
+								"firstRowOnly": false
+							}
+						}
+					]
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2026-10-02T12:04:37Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

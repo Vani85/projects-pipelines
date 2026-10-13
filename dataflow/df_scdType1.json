@@ -1,0 +1,182 @@
+{
+	"name": "df_scdType1",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorage1",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sourceCsv"
+				},
+				{
+					"linkedService": {
+						"referenceName": "SqlLinkedService",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sinkSql"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "SqlLinkedService",
+						"type": "LinkedServiceReference"
+					},
+					"name": "InsertSink"
+				},
+				{
+					"linkedService": {
+						"referenceName": "SqlLinkedService",
+						"type": "LinkedServiceReference"
+					},
+					"name": "UpdateSink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "renameSourceColumns"
+				},
+				{
+					"name": "addHash"
+				},
+				{
+					"name": "InsertOrUpdate"
+				},
+				{
+					"name": "leftJoinCsvAndSql"
+				},
+				{
+					"name": "AddCreateUpdatedDates"
+				},
+				{
+					"name": "AddUpdatedDate"
+				},
+				{
+					"name": "AlterRowPermission"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          EmployeeId as short,",
+				"          Name as string,",
+				"          Address as string,",
+				"          Email as string",
+				"     ),",
+				"     useSchema: false,",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'delimited',",
+				"     fileSystem: 'synapse',",
+				"     folderPath: 'SCD',",
+				"     fileName: 'Employee.csv',",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true) ~> sourceCsv",
+				"source(output(",
+				"          Id as integer,",
+				"          Name as string,",
+				"          Address as string,",
+				"          Email as string,",
+				"          Hash as long",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table',",
+				"     store: 'sqlserver',",
+				"     schemaName: 'dbo',",
+				"     tableName: 'EMPLOYEE',",
+				"     isolationLevel: 'READ_UNCOMMITTED') ~> sinkSql",
+				"sourceCsv select(mapColumn(",
+				"          each(match(1==1),",
+				"               concat('src_',$$) = $$)",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> renameSourceColumns",
+				"renameSourceColumns derive(src_Hash = crc32(src_EmployeeId,src_Name,src_Address,src_Email)) ~> addHash",
+				"leftJoinCsvAndSql split(isNull(Id),",
+				"     src_EmployeeId == Id && src_Hash != Hash,",
+				"     disjoint: false) ~> InsertOrUpdate@(insert, update)",
+				"addHash, sinkSql join(src_EmployeeId == Id,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> leftJoinCsvAndSql",
+				"InsertOrUpdate@insert derive(src_CreatedDate = currentTimestamp(),",
+				"          src_UpdatedDate = currentTimestamp()) ~> AddCreateUpdatedDates",
+				"InsertOrUpdate@update derive(src_UpdatedDate = currentTimestamp()) ~> AddUpdatedDate",
+				"AddUpdatedDate alterRow(updateIf(1==1)) ~> AlterRowPermission",
+				"AddCreateUpdatedDates sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          Id as integer,",
+				"          Name as string,",
+				"          Address as string,",
+				"          Email as string,",
+				"          CreatedDate as timestamp,",
+				"          UpdatedDate as timestamp,",
+				"          Hash as long",
+				"     ),",
+				"     format: 'table',",
+				"     store: 'sqlserver',",
+				"     schemaName: 'dbo',",
+				"     tableName: 'EMPLOYEE',",
+				"     insertable: true,",
+				"     updateable: false,",
+				"     deletable: false,",
+				"     upsertable: false,",
+				"     stagingSchemaName: '',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          Id = src_EmployeeId,",
+				"          Name = src_Name,",
+				"          Address = src_Address,",
+				"          Email = src_Email,",
+				"          CreatedDate = src_CreatedDate,",
+				"          UpdatedDate = src_UpdatedDate,",
+				"          Hash = src_Hash",
+				"     ),",
+				"     preCommands: [],",
+				"     postCommands: []) ~> InsertSink",
+				"AlterRowPermission sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          Id as integer,",
+				"          Name as string,",
+				"          Address as string,",
+				"          Email as string,",
+				"          CreatedDate as timestamp,",
+				"          UpdatedDate as timestamp,",
+				"          Hash as long",
+				"     ),",
+				"     format: 'table',",
+				"     store: 'sqlserver',",
+				"     schemaName: 'dbo',",
+				"     tableName: 'Employee',",
+				"     insertable: false,",
+				"     updateable: true,",
+				"     deletable: false,",
+				"     upsertable: false,",
+				"     keys:['Id'],",
+				"     stagingSchemaName: '',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          Id,",
+				"          Name = src_Name,",
+				"          Address = src_Address,",
+				"          Email = src_Email,",
+				"          UpdatedDate = src_UpdatedDate,",
+				"          Hash = src_Hash",
+				"     )) ~> UpdateSink"
+			]
+		}
+	}
+}

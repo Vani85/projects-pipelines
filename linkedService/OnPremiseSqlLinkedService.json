@@ -1,0 +1,21 @@
+{
+	"name": "OnPremiseSqlLinkedService",
+	"type": "Microsoft.Synapse/workspaces/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "SqlServer",
+		"typeProperties": {
+			"server": "ncplvm85",
+			"database": "OnPremiseDemo",
+			"encrypt": "optional",
+			"trustServerCertificate": false,
+			"authenticationType": "SQL",
+			"userName": "azureuser",
+			"encryptedCredential": "eyJDcmVkZW50aWFsSWQiOiJmZDk2ODg2Zi1iMDcxLTRhYTYtOTljZC04NWMwMjhjZTQwYmMiLCJWZXJzaW9uIjoiMi4wIiwiQ2xhc3NUeXBlIjoiTWljcm9zb2Z0LkRhdGFQcm94eS5Db3JlLkludGVyU2VydmljZURhdGFDb250cmFjdC5DcmVkZW50aWFsU1UwNkNZMTQifQ=="
+		},
+		"connectVia": {
+			"referenceName": "SelfHosted",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

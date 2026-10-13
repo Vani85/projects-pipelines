@@ -1,0 +1,13 @@
+{
+	"name": "QueryTable",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "SqlLinkedService",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": []
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}
