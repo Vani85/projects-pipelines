@@ -87,7 +87,7 @@
 						"type": "IntegrationRuntimeReference"
 					},
 					"body": {
-						"value": "Pipeline Name : @pipeline().Pipeline\nRun ID : @pipeline().RunId\nWorkspace Name : @pipeline().DataFactory\nError Message : @activity('CopyWithError').output.Error.Message",
+						"value": "@concat(\n  '{',\n  '\"PipelineName\":\"', pipeline().Pipeline, '\",',\n  '\"RunId\":\"', pipeline().RunId, '\",',\n  '\"WorkspaceName\":\"', pipeline().DataFactory, '\",',\n  '\"ErrorMessage\":\"', activity('CopyWithError').output.Error.Message, '\"',\n  '}'\n)",
 						"type": "Expression"
 					}
 				}
