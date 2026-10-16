@@ -88,7 +88,7 @@
 						"type": "IntegrationRuntimeReference"
 					},
 					"body": {
-						"value": "@concat(\n  '{',\n  '\"PipelineName\":\"', pipeline().Pipeline, '\",',\n  '\"RunId\":\"', pipeline().RunId, '\",',\n  '\"WorkspaceName\":\"', pipeline().DataFactory, '\",',\n  '\"ErrorMessage\":\"', activity('CopyWithError').output.Error.Message, '\"',\n  '}'\n)",
+						"value": "@concat(\n  '{',\n  '\"PipelineName\":\"', pipeline().Pipeline, '\",',\n  '\"RunId\":\"', pipeline().RunId, '\",',\n  '\"WorkspaceName\":\"', pipeline().DataFactory, '\",',\n  '\"ErrorMessage\":\"', activity('CopyWithError').Error.Message, '\"',\n  '}'\n)",
 						"type": "Expression"
 					}
 				}
